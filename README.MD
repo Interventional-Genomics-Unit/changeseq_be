@@ -8,9 +8,22 @@
 
 This is a repository for CHANGE-seq-BE analytical software, which takes sample-specific paired-end FASTQ files as input and produces a list of CHANGE-seq-BE detected off-target cleavage sites as output.
 
-# Note
+# IGI CHANGE-seq-BE
 
-Currently, code for CHANGE-seq and CHANGE-seq-BE are different. `CHANGE-seq-BE` is in the `dev` branch only.
+adaptions made by T. Hudson to CHANGE-seq-BE for Off-Target Site Nomination https://github.com/tsailabSJ/changeseq
+
+IGI Added Features:
+
+
+* simple .csv sample manifest
+* replicate combination
+* normalization of replicates - (median-of-ratios or total count scaling)
+* QC metrics of alignments and fastq circularization read composition
+* identified site bam file for use with IGV
+* genomic annotation to sites
+* more plotting options - venn diagram, swarmplot and more
+* Fixed variable analysis bug
+
 
 # Summary
 
@@ -25,100 +38,104 @@ This package implements a pipeline that takes in reads from the CHANGE-seq-BE as
 
 # Installation
 
-The most easiest way to install change-seq-be pipeline is via conda.
+The easiest way to install is git clone into a designated folder
 
 ```
 
-mamba create -n changeseqbe tsailabsj::changeseqbe
-
-mamba activate changeseqbe
-
-git clone -b dev https://github.com/tsailabSJ/changeseq
+git clone https://github.com/Interventional-Genomics-Unit/changeseq_be
 
 python changeseq/changeseq/changeseq.py -h
 
 ## All dependencies are installed, e.g., BWA 0.7.17, samtools 1.9
 
 ```
+ Create a conda environment and import all required packages in one line below:
+ 
+ ```
+ conda env create -f cseq.yaml
+ conda activate cseq
+ ```
 
+In order to set up the annotation table for annotating OT sites run makefiles to download RefSeq annotations. Additional commands can change the location and FTP link (--outdir --ftp_path)
+
+```
+cd /your-path/changeseq_be/
+python changeseq/changeseq.py makefiles
+```
+ 
 
 # Usage
-
-The change-seq-be pipeline requires a manifest yaml file specifying input files, output directory, and pipeline parameters. Once the yaml file is created, users can simply run ``change_seq.py all --manifest /path/to/manifest.yaml``
-
-
-Below is an example ``manifest.yaml`` file::
-
-	reference_genome: /home/yli11/dirs/changeseq_py3/test/hg38.example.fa
-	analysis_folder: /home/yli11/dirs/changeseq_py3/test
-
-	bwa: bwa
-	samtools: samtools
-
-	read_threshold: 4
-	window_size: 30
-	mapq_threshold: 50
-	start_threshold: 1
-	mismatch_threshold: 6
-	search_radius: 30
-	merged_analysis: False
-	BEmodel_min_overlap: -30
-	BEmodel_max_overlap: 30
-	BE_analysis: True
-
-	PAM: NRCH
-	genome: hg38
-
-	samples:
-	    test:
-	        target: TTCTCCACAGGAGTCAGGTGNRCH
-	        read1: CRL3128_S1_R1_001.fastq
-	        read2: CRL3128_S1_R2_001.fastq
-	        controlread1: CRL3128_S1_R1_001.fastq
-	        controlread2: CRL3128_S1_R2_001.fastq
-	        description: test
+The Tsai lab change-seq pipeline requires a manifest yaml file specifying input files, output directory, and pipeline parameters. 
+In the IGU version this file is split into t two csv files 1) a sample manifest file <code>--manifest</code> 2) an optional settings 
+file <code>--settings</code>
+Once the csv files are created, users can simply run the changeseq.py with the parameters indicating the 
+raw fastq directory <code>--raw_fastq_folder</code> and main analysis directory <code>--analysis_folder</code>
 
 
-## Quickstart
-
-![example_vis](test/example_vis.png)
+The bash wrapper is initiated with the parameters.csv, manifest.csv, command, and sample_name
 
 ```
-
-git clone -b dev https://github.com/tsailabSJ/changeseq
-
-cd changeseq/test
-
-# modify reference_genome and analysis_folder in test.yaml, need abs path
-
-python ../changeseq/changeseq.py all -m test.yaml
-
+cd /your-path/IGU_CHANGEseq/
+python changeseq/changeseq.py all --analysis_folder /your-path/IGU_CHANGEseq/changeseq/test/Standard_Output --raw_fastq_folder /your-path/IGU_CHANGEseq/changeseq/test/input --settings unmerged_parameters.csv --manifest manifest.csv --sample all
 ```
+
+
 
 # Writing A Manifest File
-When running the end-to-end analysis functionality of the CHANGEseq package a number of inputs are required. To simplify the formatting of these inputs and to encourage reproducibility, these parameters are inputted into the pipeline via a manifest formatted as a YAML file. YAML files allow easy-to-read specification of key-value pairs. This allows us to easily specify our parameters. The following fields are required in the manifest:
 
-- `reference_genome`: The absolute path to the reference genome FASTA file.
-- `output_folder`: The absolute path to the folder in which all pipeline outputs will be saved.
+The original manifest.yaml is no longer used in this version. The prior manifest.yaml is now split into two .csv input files. 
+The manifest file contains the sample information and an example is shown below:
+
+ sequencing_sample_name | sample_name | target  | description | replicate_group_name |
+|------------------------|-------------|---------|-------------|-------------|
+| TET2_rep1              | TET2_rep1   | NTC_sample | CCAGCATAAGAGCATGAATGNGN | TET2 |
+| TET2_rep2              | TET2_rep2   | NTC_sample | CCAGCATAAGAGCATGAATGNGN | TET2 |
+
+- `sequencing_sample_name`: sample name as indicated in the raw fastq (Leave out the ("_R1_001")
+- `sample_name`: The sample name as you wish to see on the output file names  
+- `control_sequencing_sample_name`: No RNP control sample name as indicated in the raw fastq (Leave out the ("_R1_001")
+- `target`: Target sequence for that sample. Accepts degenerate bases.
+- `description`: A brief description of the sample. Usually the cell or gDNA Source name
+- `replicate_group_name`: (optional) an identifier that designates replicate samples. This must be present to run normalization
+
+ # Parameters and Setting
+ This file is a .csv with the first column the parameter name and the second column the parameter name. 
+ The parameters are now stored internally and only need to be given if different than default
+ See IGU_CHANGEseq/changeseq/test/parameters.csv
+
 - `bwa`: The absolute path to the `bwa` executable
 - `samtools`: The absolute path to the `samtools` executable
+- `cutadapt`: The absolute path to the `cutadapt` executable
+- `BEmodel_min_overlap`: 2
+- 'BEmodel_max_overlap': 15
 - `read_threshold`: The minimum number of reads at a location for that location to be called as a site. We recommend leaving it to the default value of 4.
-- `window_size`: Size of the sliding window, we recommend leaving it to the default value of 30.
-- `mapq_threshold`: Minimum read mapping quality score. We recommend leaving it to the default value of 50.
+- `window_size`: Size of the sliding window, we recommend leaving it to the default value of 3.
+- `mapq_threshold`: Minimum read mapping quality score. We recommend leaving it to the default value of 40.
 - `start_threshold`: Tolerance for breakpoint location. We recommend leaving it to the default value of 1.
-- `mismatch_threshold`: Number of tolerated distance in the fuzzy target search setp. We recommend leaving it to the default value of 6.
+- `gap_threshold`: Distance between breakpoints. We recommend leaving it to the default value of 3 for Cas9.
+- `mismatch_threshold`: Number of tolerated gaps in the fuzzy target search setp. We recommend leaving it to the default value of 6.
 - `read_length`: Fastq file read length, default is 151.
 - `PAM`: PAM sequence, default is NGG.
-- `merged_analysis`: for BE, this is false
-- `samples`: Lists the samples you wish to analyze and the details for each. Each sample name should be nested under the top level samples key, and each sample detail should be nested under the sample name. See the sample manifest for an example.
-    - For each sample, you must provide the following parameters:
-        - `target`: Target sequence for that sample. Accepts degenerate bases.
-        - `read1`: The absolute path to the .FASTQ(.gz) file containing the read1 reads.
-        - `read2`: The absolute path to the .FASTQ(.gz) file containing the read2 reads.
-        - `controlread1`: The absolute path to the .FASTQ(.gz) file containing the control read1 reads.
-        - `controlread2`: The absolute path to the .FASTQ(.gz) file containing the control read2 reads.
-        - `description`: A brief description of the sample
+- `normalize`: normalization method to use for replicates "none", "median" or "rpm", default=median
 
+# Commands
+
+### Pipeline commands (must be run alongside samples command)
+
+- `all`: runs all of the pipelines
+- `align`: merges (if indicated in parameters.csv), trims Tn5 adapters and aligns reads to ref genome
+- `identify`: identifies nominated off-target sites and annotates sites
+- `visualize`:annotates identified sites and creates alignment .svg image
+- `qc`: create .bam file for identified sites for IGV, alignment histogram and alignment stats file and additional QC about fastq 
+- `analyze`: joines replicates if given, normalizes reads and creates additional plots
+- `variants`: *currently* updating
+
+### Parameters
+
+- `analysis_folder`: The absolute path to the folder in which all pipeline outputs will be saved.
+- `raw_fastq_folder`:The absolute path to the folder in which all raw fastq files are stored.
+- `all`: runs all samples in manifest
+- `sample_name`: runs the specific sample indicated
 
 # Pipeline Output
 When running the full pipeline, the results of each step are outputted to the `output_folder` in a separate folder for each step. The output folders and their respective contents are as follows:

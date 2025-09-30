@@ -1,7 +1,6 @@
 """
 alignReads
 """
-
 import subprocess
 import os
 import logging
@@ -20,13 +19,13 @@ def trim_reads(cutadapt=None, R1=None, R2=None, label=None,output_dir=None, njob
 	# too_short_reads_PE_output = f"--too-short-output {output_dir}/{label}.too_short.R1.fastq.gz --too-short-paired-output {output_dir}/{label}.too_short.R2.fastq.gz"
 	# untrimmed_reads_PE_output = f"--untrimmed-output {output_dir}/{label}.untrimmed.R1.fastq.gz --untrimmed-paired-output {output_dir}/{label}.untrimmed.R2.fastq.gz"
 	# other_options = f"-j {njobs} -Z -m 10 --overlap 20 -e 0.1 --info-file {output_dir}/{label}.cutadapt_info_file.tsv --pair-filter both"
-	other_options = f"-j {njobs} -Z --overlap 40 -e 0.15 --info-file {output_dir}/{label}.cutadapt_info_file.tsv"
-
+	other_options = (f"-j {njobs} -Z --overlap 30 -e 0.15 --info-file {output_dir}/{label}.cutadapt_info_file.tsv")
 	# cutadapt_command = f"{cutadapt} {trimming_input} {trimmed_reads_PE_output} {too_short_reads_PE_output} {untrimmed_reads_PE_output} {other_options} {R1} {R2}"
-	cutadapt_command = f"{cutadapt} {trimming_input} {trimmed_reads_PE_output} {other_options} {R1} {R2}"
+	cutadapt_command = f"{cutadapt} {trimming_input} {trimmed_reads_PE_output} {other_options} {R1} {R2} > {output_dir}/{label}_trim_log.txt"
 	logger.info(cutadapt_command)
 	subprocess.call(cutadapt_command,shell=True,stdout=sys.stdout,stderr=sys.stderr)
 	return f"{output_dir}/{label}.trim.R1.fastq.gz",f"{output_dir}/{label}.trim.R2.fastq.gz"
+
 
 def alignReads(bwa=None, samtools=None, # Tools
 			   reference_genome=None, R1=None, R2=None, label=None, output_dir=None, # Inputs
@@ -58,8 +57,12 @@ def alignReads(bwa=None, samtools=None, # Tools
 		logger.info('BWA genome index generated')
 
 	# Trimming
+
 	if trim:
 		R1,R2 = trim_reads(R1=R1, R2=R2, label=label, output_dir=trimmed_fastq_output, njobs=njobs, **kwargs)
+
+	#R1,R2 = f"{output_dir.replace('aligned','fastq')}/{label}.trim.R1.fastq.gz",f"{output_dir.replace('aligned','fastq')}/{label}.trim.R2.fastq.gz"
+
 
 	# BWA alignment
 	opts = f"-t {njobs}"
